@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User preferences, identity details, and role access privileges.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Foreign key reference to Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "Authenticating user email address" },
+        "displayName": { "type": "string", "description": "Human representation name of user" },
+        "role": { "type": "string", "enum": ["admin", "operator", "viewer"], "description": "Access control authorization tier" },
+        "isDarkMode": { "type": "boolean", "description": "Persistent aesthetic theme selection flag" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Database insertion timestamp" }
+      },
+      "required": ["userId", "email", "role", "isDarkMode", "createdAt"]
+    },
+    "TestSuite": {
+      "title": "Test Suite Profile",
+      "description": "Configured integration validation suite detailing platform-specific testing steps.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique test suite identifier key" },
+        "name": { "type": "string", "description": "Descriptive title of test suite" },
+        "description": { "type": "string", "description": "Contextual definition of suite goals" },
+        "productType": { "type": "string", "enum": ["web", "api", "mobile", "windows"], "description": "Underlying test execution target platform" },
+        "steps": { "type": "array", "description": "Sequential automation instruction steps for execution" },
+        "assertions": { "type": "array", "description": "Specific verification state checks for correctness" },
+        "code": { "type": "string", "description": "Executable automation script code blueprint" },
+        "ownerId": { "type": "string", "description": "Identifier of user owning this suite config" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Database creation timestamp" }
+      },
+      "required": ["id", "name", "description", "productType", "steps", "assertions", "code", "ownerId", "createdAt"]
+    },
+    "TestRun": {
+      "title": "Test Run Execution log",
+      "description": "Real-time records tracking the status, progress, and logs of an active or historically concluded test suite run.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique execution run session key" },
+        "suiteId": { "type": "string", "description": "Target test suite identifier reference" },
+        "suiteName": { "type": "string", "description": "Name of suite at execution time" },
+        "productType": { "type": "string", "enum": ["web", "api", "mobile", "windows"], "description": "Target testing platform" },
+        "status": { "type": "string", "enum": ["running", "passed", "failed", "pending"], "description": "Current state of execution" },
+        "progress": { "type": "integer", "description": "Execution completion percentage (0-100)" },
+        "startedAt": { "type": "string", "format": "date-time", "description": "Dispatch timestamp of the run" },
+        "duration": { "type": "integer", "description": "Completed runtime duration in milliseconds" },
+        "logs": { "type": "array", "description": "Real-time stream of host shell terminal output lines" },
+        "executorId": { "type": "string", "description": "UID of user who dispatched the run" },
+        "executorName": { "type": "string", "description": "Name of user who dispatched the run" }
+      },
+      "required": ["id", "suiteId", "suiteName", "productType", "status", "progress", "startedAt", "duration", "logs", "executorId", "executorName"]
+    },
+    "Lead": {
+      "title": "Customer Demo Request Lead",
+      "description": "Form submissions collecting prospective customer contact details and organizational goals for guided product demos.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique registration key" },
+        "name": { "type": "string", "description": "Prospective customer full name" },
+        "email": { "type": "string", "format": "email", "description": "Prospective customer email address" },
+        "company": { "type": "string", "description": "Company or professional association name" },
+        "phone": { "type": "string", "description": "Primary voice contact detail" },
+        "notes": { "type": "string", "description": "Indicated target goals or comments" },
+        "status": { "type": "string", "enum": ["new", "contacted", "demoed", "onboarded"], "description": "Lifecycle state of the lead" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Registration timestamp" }
+      },
+      "required": ["id", "name", "email", "company", "phone", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Private profile information mapping user settings and permissions."
+    },
+    "testSuites/{suiteId}": {
+      "schema": "TestSuite",
+      "description": "Database storing customizable validation and automation suite templates."
+    },
+    "testRuns/{runId}": {
+      "schema": "TestRun",
+      "description": "Real-time test run telemetry database logs."
+    },
+    "leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Database containing prospective client registers collected via demo portal forms."
+    }
+  }
+}

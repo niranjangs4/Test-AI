@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Phase 1: Global Safety Net ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // --- Phase 2: Global Security and Schema Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "niranjan4crypto@gmail.com" ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+      );
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isStringList(arr) {
+      return arr.size() == 0 || (arr.size() > 0 && arr[0] is string);
+    }
+    
+    // --- Phase 3: Entity Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'email', 'displayName', 'role', 'isDarkMode', 'createdAt']) &&
+        data.keys().size() == 6 &&
+        data.userId is string && data.userId.size() <= 128 &&
+        data.email is string && data.email.size() <= 256 &&
+        data.displayName is string && data.displayName.size() <= 256 &&
+        data.role is string && (data.role == 'admin' || data.role == 'operator' || data.role == 'viewer') &&
+        data.isDarkMode is bool;
+    }
+    
+    function isValidTestSuite(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'productType', 'steps', 'assertions', 'code', 'ownerId', 'createdAt']) &&
+        data.keys().size() == 9 &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() <= 256 &&
+        data.description is string && data.description.size() <= 1000 &&
+        data.productType is string && (data.productType == 'web' || data.productType == 'api' || data.productType == 'mobile' || data.productType == 'windows') &&
+        data.steps is list && data.steps.size() <= 50 && isStringList(data.steps) &&
+        data.assertions is list && data.assertions.size() <= 50 && isStringList(data.assertions) &&
+        data.code is string && data.code.size() <= 10000 &&
+        data.ownerId is string && data.ownerId.size() <= 128;
+    }
+    
+    function isValidTestRun(data) {
+      return data.keys().hasAll(['id', 'suiteId', 'suiteName', 'productType', 'status', 'progress', 'startedAt', 'durationMs', 'logs', 'executorId', 'executorName']) &&
+        data.keys().size() == 11 &&
+        data.id is string && data.id.size() <= 128 &&
+        data.suiteId is string && data.suiteId.size() <= 128 &&
+        data.suiteName is string && data.suiteName.size() <= 256 &&
+        data.productType is string && (data.productType == 'web' || data.productType == 'api' || data.productType == 'mobile' || data.productType == 'windows') &&
+        data.status is string && (data.status == 'running' || data.status == 'passed' || data.status == 'failed' || data.status == 'pending') &&
+        data.progress is int && data.progress >= 0 && data.progress <= 100 &&
+        data.durationMs is int && data.durationMs >= 0 && data.durationMs <= 3600000 &&
+        data.logs is list && data.logs.size() <= 200 && isStringList(data.logs) &&
+        data.executorId is string && data.executorId.size() <= 128 &&
+        data.executorName is string && data.executorName.size() <= 256;
+    }
+    
+    function isValidLead(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'company', 'phone', 'notes', 'status', 'createdAt']) &&
+        data.keys().size() == 8 &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() <= 256 &&
+        data.email is string && data.email.size() <= 256 &&
+        data.company is string && data.company.size() <= 256 &&
+        data.phone is string && data.phone.size() <= 100 &&
+        data.notes is string && data.notes.size() <= 2000 &&
+        data.status is string && (data.status == 'new' || data.status == 'contacted' || data.status == 'demoed' || data.status == 'onboarded');
+    }
+    
+    // --- Phase 4: Path Mappings & Access Rules ---
+    
+    // Users Profile Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      
+      allow create: if isSignedIn() && isOwner(userId) && isValidId(userId) &&
+        isValidUser(incoming()) &&
+        incoming().userId == userId &&
+        incoming().email == request.auth.token.email &&
+        incoming().createdAt == request.time &&
+        (
+          (request.auth.token.email == "niranjan4crypto@gmail.com" && incoming().role == "admin") ||
+          (incoming().role == "viewer" || incoming().role == "operator")
+        );
+        
+      allow update: if isSignedIn() && isOwner(userId) && isValidId(userId) &&
+        isValidUser(incoming()) &&
+        incoming().userId == userId &&
+        incoming().email == request.auth.token.email &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          incoming().role == existing().role ||
+          isAdmin()
+        ) &&
+        (
+          // Action 1: Change user settings or details (Theme or Display Name)
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'isDarkMode']) ||
+          // Operator/Admin overrides
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'isDarkMode', 'role'])
+        );
+        
+      allow delete: if isAdmin();
+    }
+    
+    // Test Suites Collection
+    match /testSuites/{suiteId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && isValidId(suiteId) &&
+        isValidTestSuite(incoming()) &&
+        incoming().id == suiteId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time;
+        
+      allow update: if isSignedIn() && isValidId(suiteId) &&
+        isValidTestSuite(incoming()) &&
+        incoming().id == suiteId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          resource.data.ownerId == request.auth.uid || 
+          isAdmin()
+        ) &&
+        incoming().diff(existing()).affectedKeys().hasAny(['name', 'description', 'steps', 'assertions', 'code']);
+        
+      allow delete: if isSignedIn() && isValidId(suiteId) &&
+        (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+    
+    // Test Runs Collection
+    match /testRuns/{runId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && isValidId(runId) &&
+        isValidTestRun(incoming()) &&
+        incoming().id == runId &&
+        incoming().executorId == request.auth.uid &&
+        incoming().startedAt == request.time;
+        
+      allow update: if isSignedIn() && isValidId(runId) &&
+        isValidTestRun(incoming()) &&
+        incoming().id == runId &&
+        incoming().executorId == existing().executorId &&
+        incoming().startedAt == existing().startedAt &&
+        (
+          resource.data.executorId == request.auth.uid || 
+          isAdmin()
+        ) &&
+        // Prevent terminal state modification
+        (existing().status == 'running' || existing().status == 'pending') &&
+        (
+          incoming().diff(existing()).affectedKeys().hasAny(['status', 'progress', 'duration', 'logs'])
+        );
+        
+      allow delete: if isAdmin();
+    }
+    
+    // Customer Leads Collection
+    match /leads/{leadId} {
+      allow create: if isValidId(leadId) &&
+        isValidLead(incoming()) &&
+        incoming().id == leadId &&
+        incoming().createdAt == request.time &&
+        incoming().status == 'new';
+        
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

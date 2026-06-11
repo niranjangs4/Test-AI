@@ -1,0 +1,6 @@
+{
+  "name": "OmniTest Automation Dashboard",
+  "description": "Unified dark-mode test execution matrix supporting Playwright web selectors, Appium mobile viewports, Windows click drivers, and REST API gates with full Gemini-powered prompt-to-suite layout drafting and log diagnostic tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
