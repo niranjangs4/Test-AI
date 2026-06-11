@@ -3898,7 +3898,7 @@ export default function App() {
 
           {/* Simple footer with credentials and email */}
           <footer className="text-center text-xs text-slate-400 pt-10 border-t border-slate-200">
-            <p>© 2026 test.ai Global Corp. Secure Firebase Gateways. Supervised by niranjan4crypto@gmail.com.</p>
+            <p>© 2026 test.ai Global Corp. Secure Firebase Gateways. Supervised by pragyan@wisdombridge.tech.</p>
           </footer>
 
         </main>
